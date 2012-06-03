@@ -24,7 +24,7 @@ all-unix:: kinit
 ##WIN32##all-windows:: $(KINIT)
 
 kinit: kinit.o kinit_kdb.o $(KRB5_BASE_DEPLIBS) $(KADMSRV_DEPLIBS)
-	$(CC_LINK) -o $@ kinit.o kinit_kdb.o $(KADMSRV_LIBS) $(KRB5_BASE_LIBS)
+	$(CC_LINK) -o $@ kinit.o kinit_kdb.o $(KADMSRV_LIBS) $(KRB5_BASE_LIBS) -lpthread
 
 ##WIN32##$(KINIT): $(OUTPRE)kinit.obj $(BUILDTOP)\util\windows\$(OUTPRE)getopt.lib $(KLIB) $(CLIB) $(EXERES)
 ##WIN32##	link $(EXE_LINKOPTS) -out:$@ $** advapi32.lib
