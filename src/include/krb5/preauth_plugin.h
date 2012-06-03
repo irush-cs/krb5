@@ -375,11 +375,13 @@ typedef struct krb5_kdcpreauth_callbacks_st {
     /* Retrieve a string attribute from the client DB entry, or NULL if no such
      * attribute is set.  Free the result with the free_string callback. */
     krb5_error_code (*get_string)(krb5_context context,
-                                  krb5_kdcpreauth_rock rock, const char *key,
+                                  krb5_kdcpreauth_rock rock,
+                                  const char *key,
                                   char **value_out);
 
     /* Free the result of get_string. */
-    void (*free_string)(krb5_context context, krb5_kdcpreauth_rock rock,
+    void (*free_string)(krb5_context context,
+                        krb5_kdcpreauth_rock rock,
                         char *string);
 
     /* Get a pointer to the client DB entry (returned as a void pointer to
