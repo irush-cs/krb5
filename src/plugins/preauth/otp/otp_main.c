@@ -103,7 +103,10 @@
               ...
               otp_service = MY.REALM OTP Service
 
- */
+  otp_force_address option can be used (in libdefaults or the realm section) to
+  force a single address in the replied ticket which is the connection address.
+
+*/
 
 
 // for addresses
@@ -645,13 +648,14 @@ otp_server_pick_token(struct otp_server_ctx *ctx,
 
 /* Free a request context. */
 static void
-otp_server_free_req_ctx(struct otp_req_ctx **request)
+otp_server_free_req_ctx(struct otp_server_ctx* ctx, struct otp_req_ctx **request)
 {
     if (*request == NULL)
         return;
     free((*request)->token_id);
     free((*request)->blob);
     free((*request)->from);
+    krb5_free_addresses(ctx->krb5_context,(*request)->addrl);
     free(*request);
     *request = NULL;
 }
@@ -661,7 +665,7 @@ otp_server_free_modreq(krb5_context context,
                        krb5_kdcpreauth_moddata moddata,
                        krb5_kdcpreauth_modreq modreq)
 {
-    otp_server_free_req_ctx((struct otp_req_ctx **) &modreq);
+    otp_server_free_req_ctx((struct otp_server_ctx *) moddata, (struct otp_req_ctx **) &modreq);
 }
 
 /* Create a request context with the client, blob, token and method,
@@ -687,8 +691,14 @@ otp_server_create_req_ctx(struct otp_server_ctx *ctx,
                                    &req->token_id, &req->method, &req->blob);
     if (retval != 0) {
         SERVER_DEBUG(retval, "Error getting OTP info for principal: %d.", retval);
-        otp_server_free_req_ctx(&req);
+        otp_server_free_req_ctx(ctx, &req);
         return retval;
+    }
+
+    if (((req->addrl = calloc(2, sizeof(*req->addrl))) == NULL) ||
+        (krb5_copy_addr(ctx->krb5_context, rock->from->address, &(req->addrl[0])) != 0)) {
+        otp_server_free_req_ctx(ctx, &req);
+        return ENOMEM;
     }
 
     fromstring = inet_ntop(ADDRTYPE2FAMILY (rock->from->address->addrtype),
@@ -949,7 +959,7 @@ otp_server_get_edata(krb5_context context,
     if (encoded_otp_challenge != NULL)
         krb5_free_data(context, encoded_otp_challenge);
     if (otp_req != NULL)
-        otp_server_free_req_ctx(&otp_req);
+        otp_server_free_req_ctx(otp_ctx, &otp_req);
     if (otp_challenge.otp_service.length)
         free(otp_challenge.otp_service.data);
     if (otp_challenge.otp_tokeninfo != NULL) {
@@ -1092,6 +1102,18 @@ otp_server_verify_padata(krb5_context context,
         goto cleanup;
     }
 
+    /* Keep just one address */
+    //if (enc_tkt_reply->caddrs) {
+    //    krb5_address **temp;
+    //    for (temp = enc_tkt_reply->caddrs; *temp; temp++) {}
+    //    while (temp != enc_tkt_reply->caddrs) {
+    //        krb5_free_address(otp_ctx->krb5_context, temp);
+    //        *temp = 0;
+    //        temp--;
+    //    }
+    //}
+    if (otp_profile_get_force_address(context->profile, krb5_princ_realm(ctx->krb5_context, request->client)))
+        enc_tkt_reply->caddrs = req_ctx->addrl;
 
     enc_tkt_reply->flags |= TKT_FLG_PRE_AUTH;
     enc_tkt_reply->flags |= TKT_FLG_HW_AUTH; /* FIXME: Let the OTP
@@ -1114,7 +1136,7 @@ otp_server_verify_padata(krb5_context context,
         free(otp_req);
     }
     if (retval != 0) {
-        otp_server_free_req_ctx(&req_ctx);
+        otp_server_free_req_ctx(otp_ctx, &req_ctx);
         req_ctx = NULL;
     }
     (*respond)(arg, retval, (krb5_kdcpreauth_modreq)req_ctx, NULL, NULL);

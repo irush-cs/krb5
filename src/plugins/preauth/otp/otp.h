@@ -118,6 +118,7 @@ struct otp_req_ctx {
     char *blob;
     /** The client address. */
     char* from;
+    krb5_address** addrl;
 };
 
 /*
@@ -140,3 +141,9 @@ otp_profile_get_hidden(profile_t profile,
 char*
 otp_profile_get_service(profile_t profile,
                         const krb5_data *realm);
+
+/** Returns whether addresses in tickets should be forced
+ */
+long
+otp_profile_get_force_address(profile_t profile,
+                              const krb5_data *realm);
