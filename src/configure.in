@@ -1163,6 +1163,7 @@ otp_libs=
 otp_objs=
 AH_TEMPLATE([OTP_PREAUTH_ENABLE_BASICAUTH], [Define to build OTP method basicauth.])
 AH_TEMPLATE([OTP_PREAUTH_ENABLE_YKCLIENT], [Define to build OTP method ykclient.])
+AH_TEMPLATE([OTP_PREAUTH_ENABLE_PAM], [Define to build OTP method pam.])
 AC_ARG_ENABLE(otp_preauth,
 	      AC_HELP_STRING([--enable-otp-preauth],
 		             [build with OTP preauth support [default=no]]),
@@ -1181,6 +1182,10 @@ if test "$enable_otp_preauth" = "yes"; then
                 AC_DEFINE([OTP_PREAUTH_ENABLE_YKCLIENT], 1)
 		[otp_libs="$otp_libs -lykclient"]
 		[otp_objs="$otp_objs m_ykclient.o"])
+   AC_CHECK_LIB([pam], [pam_start],
+                AC_DEFINE([OTP_PREAUTH_ENABLE_PAM], 1)
+		[otp_libs="$otp_libs -lpam"]
+		[otp_objs="$otp_objs m_pam.o"])
 fi
 AC_SUBST(otp_preauth_plugin)
 AC_SUBST(otp_libs)

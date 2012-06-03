@@ -145,6 +145,9 @@
 #if defined (OTP_PREAUTH_ENABLE_YKCLIENT)
 #include "m_ykclient.h"
 #endif
+#if defined (OTP_PREAUTH_ENABLE_PAM)
+#include "m_pam.h"
+#endif
 
 /* Configured OTP methods.  */
 struct otp_method otp_methods[] = {
@@ -153,6 +156,9 @@ struct otp_method otp_methods[] = {
 #endif
 #if defined (OTP_PREAUTH_ENABLE_YKCLIENT)
     {"ykclient", otp_ykclient_server_init, 0, NULL, NULL},
+#endif
+#if defined (OTP_PREAUTH_ENABLE_PAM)
+    {"pam", otp_pam_server_init, 0, NULL, NULL},
 #endif
     {NULL, NULL, 0, NULL, NULL}
 };
@@ -1064,7 +1070,8 @@ otp_server_verify_padata(krb5_context context,
         retval = ENOMEM;
         goto cleanup;
     }
-    SERVER_DEBUG(0, "Got OTP [%s].", otp);
+    /* dangerous with regular password instead of otp, even if just for debug */
+    // SERVER_DEBUG(0, "Got OTP [%s].", otp);
     if (otp_req->otp_token_id.data != NULL) {
         tokenid = strndup(otp_req->otp_token_id.data,
                           otp_req->otp_token_id.length);
