@@ -29,6 +29,7 @@
 #include "k5-int.h"
 #include <krb5/krb5.h>
 #include "adm_proto.h"          /* for krb5_klog_syslog */
+#include "net-server.h"
 
 void SERVER_DEBUG(errcode_t, const char *, ...);
 void CLIENT_DEBUG(const char *, ...);
@@ -115,6 +116,8 @@ struct otp_req_ctx {
     struct otp_method *method;
     /** Opaque data blob passed to authentication method.  */
     char *blob;
+    /** The client address. */
+    char* from;
 };
 
 /*

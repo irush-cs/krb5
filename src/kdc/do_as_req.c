@@ -533,6 +533,7 @@ process_as_req(krb5_kdc_req *request, krb5_data *req_pkt,
     state->rock.inner_body = state->inner_body;
     state->rock.rstate = state->rstate;
     state->rock.vctx = vctx;
+    state->rock.from = state->from;
     if (!state->request->client) {
         state->status = "NULL_CLIENT";
         errcode = KRB5KDC_ERR_C_PRINCIPAL_UNKNOWN;

@@ -105,6 +105,11 @@
 
  */
 
+
+// for addresses
+#include "k5-int.h"
+#include "../kdc/kdc_util.h"
+
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
@@ -646,6 +651,7 @@ otp_server_free_req_ctx(struct otp_req_ctx **request)
         return;
     free((*request)->token_id);
     free((*request)->blob);
+    free((*request)->from);
     free(*request);
     *request = NULL;
 }
@@ -669,6 +675,8 @@ otp_server_create_req_ctx(struct otp_server_ctx *ctx,
 {
     krb5_error_code retval = 0;
     struct otp_req_ctx *req = NULL;
+    char fromstringbuf[70];
+    char* fromstring = 0;
 
     *req_out = NULL;
     req = calloc(1, sizeof(struct otp_req_ctx));
@@ -683,8 +691,15 @@ otp_server_create_req_ctx(struct otp_server_ctx *ctx,
         return retval;
     }
 
-    SERVER_DEBUG(0, "Token id [%s] found; method [%s], blob [%s].",
-                 req->token_id, req->method->name, req->blob ? req->blob : "");
+    fromstring = inet_ntop(ADDRTYPE2FAMILY (rock->from->address->addrtype),
+                           rock->from->address->contents,
+                           fromstringbuf, sizeof(fromstringbuf));
+
+    if (fromstring)
+        req->from = strdup(fromstring);
+
+    SERVER_DEBUG(0, "Token id [%s] found; method [%s], blob [%s], from [%s].",
+                 req->token_id, req->method->name, req->blob ? req->blob : "", req->from);
     *req_out = req;
     return 0;
 }
@@ -907,6 +922,9 @@ otp_server_get_edata(krb5_context context,
         SERVER_DEBUG(0, "Method [%s] doesn't set a challenge.",
                      otp_req->method->name);
     }
+
+    /* TODO: Delegate to otp methods to decide on the flags.  */
+    otp_challenge.otp_tokeninfo[0].flags = 0;
 
     /* Encode challenge.  */
     retval = encode_krb5_pa_otp_challenge(&otp_challenge,
