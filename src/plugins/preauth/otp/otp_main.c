@@ -510,7 +510,15 @@ otp_client_process(krb5_context context,
     if (otp_challenge != NULL) {
         krb5_free_data_contents(context, &otp_challenge->nonce);
         krb5_free_data_contents(context, &otp_challenge->otp_service);
-        /* free(otp_challenge->otp_tokeninfo); */
+        while (otp_challenge->n_otp_tokeninfo) {
+            krb5_free_data_contents(context, &otp_challenge->otp_tokeninfo[otp_challenge->n_otp_tokeninfo - 1].otp_vendor);
+            //krb5_octet_data otp_challenge;
+            //krb5_octet_data otp_token_id;
+            krb5_free_data_contents(context, &otp_challenge->otp_tokeninfo[otp_challenge->n_otp_tokeninfo - 1].otp_alg_id);
+            //krb5_algorithm_identifier supported_hash_alg; /* FIXME: SEQUENCE OF */
+            otp_challenge->n_otp_tokeninfo--;
+        }
+        free(otp_challenge->otp_tokeninfo);
         krb5_free_data_contents(context, &otp_challenge->salt);
         krb5_free_data_contents(context, &otp_challenge->s2kparams);
         free(otp_challenge);

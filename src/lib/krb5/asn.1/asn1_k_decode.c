@@ -1755,6 +1755,10 @@ asn1_decode_typed_data_ptr(asn1buf *buf, krb5_typed_data **valptr)
 /* Definitions for draft-ietf-krb-wg-otp-preauth-18.  */
 
 asn1_error_code
+asn1_decode_otp_flags(asn1buf *buf, krb5_flags *val)
+{ return asn1_decode_krb5_flags(buf,val); }
+
+asn1_error_code
 asn1_decode_otp_tokeninfo(asn1buf *buf, krb5_otp_tokeninfo *val)
 {
     setup();
@@ -1766,15 +1770,15 @@ asn1_decode_otp_tokeninfo(asn1buf *buf, krb5_otp_tokeninfo *val)
     val->otp_alg_id.data = NULL;
     val->iteration_count = 0;
     { begin_structure();
-        get_field(val->flags,0,asn1_decode_int32); /* FIXME: OTPFlags */
-        opt_lenfield(val->otp_vendor.length,val->otp_vendor.data,1,asn1_decode_generalstring); /* FIXME: UTF8String */
+        get_field(val->flags,0,asn1_decode_otp_flags);
+        opt_lenfield(val->otp_vendor.length,val->otp_vendor.data,1,asn1_decode_octetstring); /* FIXME: UTF8String */
         opt_lenfield(val->otp_challenge.length,val->otp_challenge.data,2,asn1_decode_octetstring); /* FIXME: OCTET STRING (SIZE(1..MAX)) */
-        get_field(val->otp_length,3,asn1_decode_int32);
+        opt_field(val->otp_length,3,asn1_decode_int32, 0);
         opt_lenfield(val->otp_token_id.length,val->otp_token_id.data,4,asn1_decode_octetstring);
         opt_lenfield(val->otp_alg_id.length,val->otp_alg_id.data,5,asn1_decode_charstring); /* FIXME: AnyURI */
         /* TODO: supportedHashAlg [6] SEQUENCE OF AlgorithmIdentifier OPTIONAL
            asn1_decode_sequence_of_algorithm_identifier() */
-        get_field(val->iteration_count,7,asn1_decode_int32);
+        opt_field(val->iteration_count,7,asn1_decode_int32, 0);
         end_structure();
     }
 
@@ -1788,19 +1792,45 @@ asn1_decode_otp_tokeninfo(asn1buf *buf, krb5_otp_tokeninfo *val)
 }
 
 asn1_error_code
+asn1_decode_sequence_of_tokeninfo(asn1buf *buf, unsigned int *num, krb5_otp_tokeninfo **val)
+{
+    int size = 0;
+    krb5_otp_tokeninfo *array = NULL, *new_array;
+
+    asn1_error_code retval;
+    { sequence_of(buf);
+        while (asn1buf_remains(&seqbuf,seqofindef) > 0) {
+            size++;
+            new_array = realloc(array,size*sizeof(krb5_otp_tokeninfo));
+            if (new_array == NULL) clean_return(ENOMEM);
+            array = new_array;
+            retval = asn1_decode_otp_tokeninfo(&seqbuf,&array[size-1]);
+            if (retval) clean_return(retval);
+        }
+        end_sequence_of(buf);
+    }
+    *num = size;
+    *val = array;
+    return 0;
+error_out:
+    free(array);
+    return retval;
+}
+
+asn1_error_code
 asn1_decode_pa_otp_challenge(asn1buf *buf, krb5_pa_otp_challenge *val)
 {
     setup();
     val->nonce.data = NULL;
     val->otp_service.data = NULL;
     val->otp_tokeninfo = NULL;
+    val->n_otp_tokeninfo = 0;
     val->salt.data = NULL;
     val->s2kparams.data = NULL;
     { begin_structure();
         get_lenfield(val->nonce.length,val->nonce.data,0,asn1_decode_charstring);
         opt_lenfield(val->otp_service.length,val->otp_service.data,1,asn1_decode_octetstring);
-        /* TODO: otp_tokeninfo: otp-tokenInfo [2] SEQUENCE (SIZE(1..MAX)) OF OTP-TOKENINFO
-           asn1_decode_otp_tokeninfo() */
+        opt_lenfield(val->n_otp_tokeninfo,val->otp_tokeninfo,2,asn1_decode_sequence_of_tokeninfo);
         opt_lenfield(val->salt.length,val->salt.data,3,asn1_decode_generalstring);
         opt_lenfield(val->s2kparams.length,val->s2kparams.data,4,asn1_decode_octetstring);
         end_structure();
@@ -1811,7 +1841,17 @@ error_out:
     val->nonce.data = NULL;
     krb5_free_data_contents(NULL, &val->otp_service);
     val->otp_service.data = NULL;
-    /* TODO: free val->otp_tokeninfo */
+    /* TODO: use krb5_free_otp_tokeninfo instead */
+    while (val->n_otp_tokeninfo > 0) {
+        krb5_free_data_contents(NULL, &val->otp_tokeninfo[val->n_otp_tokeninfo - 1].otp_vendor);
+        free(val->otp_tokeninfo[val->n_otp_tokeninfo - 1].otp_challenge.data);
+        val->otp_tokeninfo[val->n_otp_tokeninfo - 1].otp_challenge.data = 0;
+        free(val->otp_tokeninfo[val->n_otp_tokeninfo - 1].otp_token_id.data);
+        val->otp_tokeninfo[val->n_otp_tokeninfo - 1].otp_token_id.data = 0;
+        krb5_free_data_contents(NULL, &val->otp_tokeninfo[val->n_otp_tokeninfo - 1].otp_alg_id);
+        val->n_otp_tokeninfo--;
+    }
+    free(val->otp_tokeninfo);
     krb5_free_data_contents(NULL, &val->salt);
     val->salt.data = NULL;
     krb5_free_data_contents(NULL, &val->s2kparams);
