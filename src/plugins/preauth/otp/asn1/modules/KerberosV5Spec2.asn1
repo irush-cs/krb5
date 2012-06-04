@@ -1,0 +1,38 @@
+-- Modified from http://www.ietf.org/rfc/rfc4120.txt
+-- Edited to remove data types we don't need (most of them)
+
+KerberosV5Spec2 {
+        iso(1) identified-organization(3) dod(6) internet(1)
+        security(5) kerberosV5(2) modules(4) krb5spec2(2)
+} DEFINITIONS EXPLICIT TAGS ::= BEGIN
+
+Int32           ::= INTEGER (-2147483648..2147483647)
+UInt32          ::= INTEGER (0..4294967295)
+Microseconds    ::= INTEGER (0..999999)
+KerberosTime    ::= GeneralizedTime
+KerberosFlags   ::= BIT STRING (SIZE (32..MAX))
+KerberosString  ::= GeneralString --(IA5String)
+
+EncryptionKey   ::= SEQUENCE {
+        keytype  [0] Int32 -- actually encryption type --,
+        keyvalue [1] OCTET STRING
+}
+
+EncryptedData   ::= SEQUENCE {
+        etype       [0] Int32 -- EncryptionType --,
+        kvno        [1] UInt32 OPTIONAL,
+       	cipher      [2] OCTET STRING -- ciphertext
+}
+
+LastReq         ::= SEQUENCE OF SEQUENCE {
+        lr-type     [0] Int32,
+        lr-value    [1] KerberosTime
+}
+
+PA-ENC-TS-ENC   ::= SEQUENCE {
+        patimestamp [0] KerberosTime -- client's time --,
+        pausec      [1] Microseconds OPTIONAL
+}
+
+
+END

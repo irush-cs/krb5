@@ -29,6 +29,7 @@
 #include "k5-int.h"
 #include <krb5/krb5.h>
 #include "adm_proto.h"          /* for krb5_klog_syslog */
+#include "asn1/OTP-TOKENINFO.h"
 
 void SERVER_DEBUG(errcode_t, const char *, ...);
 void CLIENT_DEBUG(const char *, ...);
@@ -70,7 +71,7 @@ typedef int (*otp_server_verify_func_t)(const struct otp_req_ctx *req_ctx,
 
 /* Function to set up the challange to be sent to the client. */
 typedef int (*otp_server_challenge_func_t)(const struct otp_req_ctx *ctx,
-                                           krb5_otp_tokeninfo *tokeninfo);
+                                           OTP_TOKENINFO_t *tokeninfo);
 
 struct otp_tlv {
     unsigned int type;

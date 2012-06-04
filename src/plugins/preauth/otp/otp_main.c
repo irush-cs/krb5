@@ -113,6 +113,7 @@
 
 #include "../lib/krb5/asn.1/asn1_encode.h"
 #include <krb5/preauth_plugin.h>
+#include "asn1/PA-OTP-CHALLENGE.h"
 
 /* FIXME: Belong in krb5.hin.  */
 #define KRB5_KEYUSAGE_PA_OTP_REQUEST 		45
@@ -816,6 +817,17 @@ otp_server_fini(krb5_context context, krb5_kdcpreauth_moddata moddata)
     free(ctx);
 }
 
+static int
+otp_encoder(const void* buf, size_t len, void* output) {
+    krb5_data* data = (krb5_data*)output;
+    // FIXME: check memory
+    data->data = realloc(data->data, data->length + len);
+    memcpy(data->data + data->length, buf, len);
+    data->length += len;
+    
+    return 0;
+}
+
 static void
 otp_server_get_edata(krb5_context context,
                      krb5_kdc_req *request,
@@ -829,15 +841,19 @@ otp_server_get_edata(krb5_context context,
     krb5_error_code retval = -1;
     krb5_keyblock *armor_key = NULL;
     krb5_pa_data *pa = NULL;
-    krb5_pa_otp_challenge otp_challenge;
-    krb5_data *encoded_otp_challenge = NULL;
+    PA_OTP_CHALLENGE_t* otp_challenge;
+    OTP_TOKENINFO_t* otp_tokeninfo;
+    krb5_data encoded_otp_challenge;
     struct otp_server_ctx *otp_ctx = (struct otp_server_ctx *) moddata;
     struct otp_req_ctx *otp_req = NULL;
     krb5_timestamp now_sec;
     krb5_int32 now_usec;
+    krb5_data nonce;
 
     assert(otp_ctx != NULL);
-    memset(&otp_challenge, 0, sizeof(otp_challenge));
+    memset(&encoded_otp_challenge, 0, sizeof(encoded_otp_challenge));
+    // FIXME: check memory
+    otp_challenge = calloc(1, sizeof(*otp_challenge));
 
     armor_key = cb->fast_armor(context, rock);
     if (armor_key == NULL) {
@@ -856,13 +872,15 @@ otp_server_get_edata(krb5_context context,
        data equals the length of the server key.  The timestamp is 4
        octets current time, seconds since the epoch and 4 bytes
        microseconds, both encoded in network byte order.  */
-    otp_challenge.nonce.length = armor_key->length + 8;
-    otp_challenge.nonce.data = (char *) malloc(otp_challenge.nonce.length);
-    if (otp_challenge.nonce.data == NULL) {
+    otp_challenge->nonce.size = armor_key->length + 8;
+    otp_challenge->nonce.buf = malloc(otp_challenge->nonce.size);
+    if (otp_challenge->nonce.buf == NULL) {
         (*respond)(arg, ENOMEM, NULL);
         goto cleanup;
     }
-    retval = krb5_c_random_make_octets(context, &otp_challenge.nonce);
+    nonce.length = otp_challenge->nonce.size;
+    nonce.data = (void*)otp_challenge->nonce.buf;
+    retval = krb5_c_random_make_octets(context, &nonce);
     if (retval != 0) {
         SERVER_DEBUG(retval, "Unable to create random data for nonce.");
         (*respond)(arg, retval, NULL);
@@ -874,23 +892,26 @@ otp_server_get_edata(krb5_context context,
         (*respond)(arg, retval, NULL);
         goto cleanup;
     }
-    *((uint32_t *) (otp_challenge.nonce.data + armor_key->length)) =
+    *((uint32_t *) (otp_challenge->nonce.buf + armor_key->length)) =
         htonl(now_sec);
-    *((uint32_t *) (otp_challenge.nonce.data + armor_key->length + 4)) =
+    *((uint32_t *) (otp_challenge->nonce.buf + armor_key->length + 4)) =
         htonl(now_usec);
 
-    otp_challenge.n_otp_tokeninfo = 1;
-    otp_challenge.otp_tokeninfo = calloc(otp_challenge.n_otp_tokeninfo,
-                                         sizeof(krb5_otp_tokeninfo));
-    if (otp_challenge.otp_tokeninfo == NULL) {
-        (*respond)(arg,  ENOMEM, NULL);
-        goto cleanup;
-    }
+    // FIXME: check memory
+    otp_tokeninfo = calloc(1, sizeof(*otp_tokeninfo));
+    ASN_SEQUENCE_ADD(&otp_challenge->otp_tokenInfo, otp_tokeninfo);
+    // FIXME, old code
+    //if (otp_challenge->otp_tokenInfo == NULL) {
+    //    (*respond)(arg,  ENOMEM, NULL);
+    //    goto cleanup;
+    //}
 
     /* Get the otp_service */
-    otp_challenge.otp_service.data = otp_profile_get_service(context->profile, krb5_princ_realm(context, request->client));
-    if (otp_challenge.otp_service.data != NULL)
-        otp_challenge.otp_service.length = strlen(otp_challenge.otp_service.data);
+    // FIXME: check memory
+    otp_challenge->otp_service = calloc(1, sizeof(*otp_challenge->otp_service));
+    otp_challenge->otp_service->buf = (void*)otp_profile_get_service(context->profile, krb5_princ_realm(context, request->client));
+    if (otp_challenge->otp_service->buf != NULL)
+        otp_challenge->otp_service->size = strlen(otp_challenge->otp_service->buf);
 
     retval = otp_server_create_req_ctx(otp_ctx, rock, NULL, cb, &otp_req);
     if (retval != 0) {
@@ -902,7 +923,7 @@ otp_server_get_edata(krb5_context context,
     /* Let the method set up a challenge (the tokeninfo) */
     if (otp_req->method->ftable->server_challenge) {
         retval = otp_req->method->ftable->server_challenge(otp_req,
-                                                           &otp_challenge.otp_tokeninfo[0]);
+                                                           otp_challenge->otp_tokenInfo.list.array[0]);
         if (retval != 0) {
             SERVER_DEBUG(retval, "[%s] server_challenge failed.",
                          otp_req->method->name);
@@ -914,9 +935,18 @@ otp_server_get_edata(krb5_context context,
                      otp_req->method->name);
     }
 
+    /* TODO: Delegate to otp methods to decide on the flags.  */
+    // FIXME: 
+    otp_challenge->otp_tokenInfo.list.array[0]->flags.buf = calloc(1, 4);
+    otp_challenge->otp_tokenInfo.list.array[0]->flags.size = 4;
+    
+
     /* Encode challenge.  */
-    retval = encode_krb5_pa_otp_challenge(&otp_challenge,
-                                          &encoded_otp_challenge);
+    //retval = encode_krb5_pa_otp_challenge(&otp_challenge,
+    //                                      &encoded_otp_challenge);
+    // FIXME: check errors
+    der_encode(&asn_DEF_PA_OTP_CHALLENGE, otp_challenge, otp_encoder, &encoded_otp_challenge);
+    
     if (retval != 0) {
         SERVER_DEBUG(retval, "Unable to encode challenge.");
         (*respond)(arg, retval, NULL);
@@ -924,28 +954,21 @@ otp_server_get_edata(krb5_context context,
     }
 
     pa->pa_type = KRB5_PADATA_OTP_CHALLENGE;
-    pa->length = encoded_otp_challenge->length;
+    pa->length = encoded_otp_challenge.length;
     pa->contents = malloc(pa->length);
     if (pa->contents == NULL) {
         retval = ENOMEM;
         goto cleanup;
     }
-    memcpy(pa->contents, encoded_otp_challenge->data, pa->length);
+    memcpy(pa->contents, encoded_otp_challenge.data, pa->length);
     (*respond)(arg, retval, pa);
 
  cleanup:
-    if (encoded_otp_challenge != NULL)
-        krb5_free_data(context, encoded_otp_challenge);
+    krb5_free_data_contents(context, &encoded_otp_challenge);
     if (otp_req != NULL)
-        otp_server_free_req_ctx(&otp_req);
-    if (otp_challenge.otp_service.length)
-        free(otp_challenge.otp_service.data);
-    if (otp_challenge.otp_tokeninfo != NULL) {
-        krb5_free_data_contents(context, &otp_challenge.otp_tokeninfo->otp_vendor);
-        free(otp_challenge.otp_tokeninfo);
-    }
-    if (otp_challenge.nonce.data != NULL)
-        free(otp_challenge.nonce.data);
+        otp_server_free_req_ctx(otp_ctx, &otp_req);
+    //FIXME
+    //asn_DEF_PA_OTP_CHALLENGE.free_struct(&asn_DEF_PA_OTP_CHALLENGE, otp_challenge, 0);
     if (retval != 0 && pa != NULL)
         free(pa);
 }
@@ -975,6 +998,8 @@ otp_server_verify_padata(krb5_context context,
     krb5_timestamp now_sec, ts_sec;
     krb5_int32 now_usec, ts_usec;
 
+    memset(&decrypted_data, 0, sizeof(decrypted_data));
+    
     if (otp_ctx == NULL) {
         retval = EINVAL;
         SERVER_DEBUG(retval,
