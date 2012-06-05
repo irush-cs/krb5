@@ -114,6 +114,8 @@
 #include "../lib/krb5/asn.1/asn1_encode.h"
 #include <krb5/preauth_plugin.h>
 #include "asn1/PA-OTP-CHALLENGE.h"
+#include "asn1/PA-OTP-REQUEST.h"
+#include "asn1/PA-OTP-ENC-REQUEST.h"
 
 /* FIXME: Belong in krb5.hin.  */
 #define KRB5_KEYUSAGE_PA_OTP_REQUEST 		45
@@ -846,8 +848,7 @@ otp_server_get_edata(krb5_context context,
     krb5_data encoded_otp_challenge;
     struct otp_server_ctx *otp_ctx = (struct otp_server_ctx *) moddata;
     struct otp_req_ctx *otp_req = NULL;
-    krb5_timestamp now_sec;
-    krb5_int32 now_usec;
+    krb5_timestamp ts;
     krb5_data nonce;
 
     assert(otp_ctx != NULL);
@@ -868,11 +869,7 @@ otp_server_get_edata(krb5_context context,
         return;
     }
 
-    /* Create nonce from random data + timestamp.  Length of random
-       data equals the length of the server key.  The timestamp is 4
-       octets current time, seconds since the epoch and 4 bytes
-       microseconds, both encoded in network byte order.  */
-    otp_challenge->nonce.size = armor_key->length + 8;
+    otp_challenge->nonce.size = armor_key->length + sizeof(ts);
     otp_challenge->nonce.buf = malloc(otp_challenge->nonce.size);
     if (otp_challenge->nonce.buf == NULL) {
         (*respond)(arg, ENOMEM, NULL);
@@ -886,16 +883,14 @@ otp_server_get_edata(krb5_context context,
         (*respond)(arg, retval, NULL);
         goto cleanup;
     }
-    retval = krb5_us_timeofday(context, &now_sec, &now_usec);
+    retval = krb5_timeofday(context, &ts);
     if (retval != 0) {
         SERVER_DEBUG(retval, "Unable to get current time.");
         (*respond)(arg, retval, NULL);
         goto cleanup;
     }
     *((uint32_t *) (otp_challenge->nonce.buf + armor_key->length)) =
-        htonl(now_sec);
-    *((uint32_t *) (otp_challenge->nonce.buf + armor_key->length + 4)) =
-        htonl(now_usec);
+        htonl(ts);
 
     // FIXME: check memory
     otp_tokeninfo = calloc(1, sizeof(*otp_tokeninfo));
@@ -973,6 +968,74 @@ otp_server_get_edata(krb5_context context,
         free(pa);
 }
 
+krb5_error_code
+nonce_verify(struct otp_server_ctx*, krb5_keyblock*, krb5_data*);
+
+/*
+ * Stolen from authhub (https://fedorahosted.org/AuthHub/)
+ */
+krb5_error_code
+nonce_verify(struct otp_server_ctx *ctx, krb5_keyblock *armor_key, krb5_data *data)
+{
+    krb5_error_code retval = EINVAL;
+    krb5_timestamp ts;
+    PA_OTP_ENC_REQUEST_t *encreq = NULL;
+    asn_dec_rval_t rval;
+
+    if (!ctx || !armor_key || !data)
+        goto out;
+
+    /* Decode the PA-OTP-ENC-REQUEST structure */
+    rval = ber_decode(0, &asn_DEF_PA_OTP_ENC_REQUEST, (void**)&encreq, data->data, data->length);
+    if (rval.code != RC_OK)
+        goto out;
+
+    /* Make sure the nonce is exactly the same size as the one generated */
+    if (encreq->nonce.size != armor_key->length + sizeof(krb5_timestamp))
+        goto out;
+
+    /* Check to make sure the timestamp at the end is still valid */
+    ts = ntohl(((krb5_timestamp*)(encreq->nonce.buf + armor_key->length))[0]);
+    retval = krb5_check_clockskew(ctx, ts);
+
+ out:
+    asn_DEF_PA_OTP_ENC_REQUEST.free_struct(&asn_DEF_PA_OTP_ENC_REQUEST, encreq, 0);
+    return retval;
+}
+
+// /*
+//  * Also stolen from authhub
+//  */
+// krb5_error_code
+// timestamp_verify(krb5_context ctx, const char *data, unsigned int len)
+// {
+//     krb5_error_code retval = EINVAL;
+//     PA_ENC_TS_ENC_t *et = NULL;
+//     krb5_timestamp time;
+//     struct tm zero(t);
+// 
+//     if (!ctx || !data)
+//         goto egress;
+// 
+//     /* Decode the PA-ENC-TS-ENC structure */
+//     et = int_ber_decode(PA_ENC_TS_ENC, data, len);
+//     if (!et)
+//         goto egress;
+// 
+//     /* Get the timestamp */
+//     asn_GT2time(&et->patimestamp, &t, 0);
+//     time = mktime(&t);
+//     if (time < 0)
+//         goto egress;
+// 
+//     /* Check the clockskew */
+//     retval = krb5_check_clockskew(ctx, time);
+// 
+//  egress:
+//     asn_DEF_PA_ENC_TS_ENC.free_struct(&asn_DEF_PA_ENC_TS_ENC, et, 0);
+//     return retval;
+// }
+
 static void
 otp_server_verify_padata(krb5_context context,
                          krb5_data *req_pkt,
@@ -985,13 +1048,14 @@ otp_server_verify_padata(krb5_context context,
                          krb5_kdcpreauth_verify_respond_fn respond,
                          void *arg)
 {
-    krb5_pa_otp_req *otp_req = NULL;
+    PA_OTP_REQUEST_t *otp_req = NULL;
     krb5_error_code retval = KRB5KDC_ERR_PREAUTH_FAILED;
     krb5_data encoded_otp_req;
     char *otp = NULL;
     char *tokenid = NULL;
     int ret;
     krb5_keyblock *armor_key = NULL;
+    krb5_enc_data encrypted_data;
     krb5_data decrypted_data;
     struct otp_server_ctx *otp_ctx = (struct otp_server_ctx *) moddata;
     struct otp_req_ctx *req_ctx = NULL;
@@ -1010,19 +1074,22 @@ otp_server_verify_padata(krb5_context context,
     encoded_otp_req.length = data->length;
     encoded_otp_req.data = (char *) data->contents;
 
-    retval = decode_krb5_pa_otp_req(&encoded_otp_req, &otp_req);
+    // FIXME, get error value
+    //retval = decode_krb5_pa_otp_req(&encoded_otp_req, &otp_req);
+    ber_decode(0, &asn_DEF_PA_OTP_REQUEST, (void**)&otp_req, encoded_otp_req.data, encoded_otp_req.length);
+    retval = 0;
     if (retval != 0) {
         SERVER_DEBUG(retval, "Unable to decode OTP request.");
         goto cleanup;
     }
 
-    if (otp_req->enc_data.ciphertext.data == NULL) {
+    if (otp_req->encData.cipher.buf == NULL) {
         retval = EINVAL;
         SERVER_DEBUG(retval, "Missing encData in PA-OTP-REQUEST.");
         goto cleanup;
     }
 
-    decrypted_data.length = otp_req->enc_data.ciphertext.length;
+    decrypted_data.length = otp_req->encData.cipher.size;
     decrypted_data.data = (char *) malloc(decrypted_data.length);
     if (decrypted_data.data == NULL) {
         retval = ENOMEM;
@@ -1036,8 +1103,13 @@ otp_server_verify_padata(krb5_context context,
         goto cleanup;
     }
 
+    encrypted_data.enctype = otp_req->encData.etype;
+    // FIXME, verify casting is correct
+    encrypted_data.kvno = (otp_req->encData.kvno ? *(krb5_kvno*)(otp_req->encData.kvno) : 0);
+    encrypted_data.ciphertext.data = (void*)otp_req->encData.cipher.buf;
+    encrypted_data.ciphertext.length = otp_req->encData.cipher.size;
     retval = krb5_c_decrypt(context, armor_key, KRB5_KEYUSAGE_PA_OTP_REQUEST,
-                            NULL, &otp_req->enc_data, &decrypted_data);
+                            NULL, &encrypted_data, &decrypted_data);
     if (retval != 0) {
         SERVER_DEBUG(retval, "Unable to decrypt encData in PA-OTP-REQUEST.");
         goto cleanup;
@@ -1057,31 +1129,38 @@ otp_server_verify_padata(krb5_context context,
         goto cleanup;
     }
 
+    /* Verify the nonce or timestamp */
+    retval = nonce_verify(otp_ctx, armor_key, &decrypted_data);
+    //if (retval != 0)
+    //    retval = timestamp_verify(context, tmp, size);
+    //free(tmp);
+    if (retval != 0) {
+
     /* FIXME: Use krb5int_check_clockskew() rather than using
        context->clockskew ourselves -- krb5_context is not public.
        Have to wait for it to become public though.  */
-    ts_sec = ntohl(*((uint32_t *) (decrypted_data.data + armor_key->length)));
-    ts_usec = ntohl(*((uint32_t *) (decrypted_data.data + armor_key->length + 4)));
-    if (labs(now_sec - ts_sec) > context->clockskew
-        || (labs(now_sec - ts_sec) == context->clockskew
-            && ((now_sec > ts_sec && now_usec > ts_usec)
-                || (now_sec < ts_sec && now_usec < ts_usec)))) {
+        //ts_sec = ntohl(*((uint32_t *) (decrypted_data.data + armor_key->length)));
+        //ts_usec = ntohl(*((uint32_t *) (decrypted_data.data + armor_key->length + 4)));
+        //if (labs(now_sec - ts_sec) > context->clockskew
+        //|| (labs(now_sec - ts_sec) == context->clockskew
+        //&& ((now_sec > ts_sec && now_usec > ts_usec)
+        //|| (now_sec < ts_sec && now_usec < ts_usec)))) {
         retval = KRB5KRB_AP_ERR_SKEW;
-        SERVER_DEBUG(retval, "Bad timestamp in PA-OTP-ENC-REQUEST.");
+        SERVER_DEBUG(retval, "Unable to verify nonce or timestamp.");
         goto cleanup;
     }
 
     /* Get OTP and potential token id hint from user.  */
-    otp = strndup(otp_req->otp_value.data, otp_req->otp_value.length);
+    otp = strndup(otp_req->otp_value->buf, otp_req->otp_value->size);
     if (otp == NULL) {
         retval = ENOMEM;
         goto cleanup;
     }
     /* dangerous with regular password instead of otp, even if just for debug */
     // SERVER_DEBUG(0, "Got OTP [%s].", otp);
-    if (otp_req->otp_token_id.data != NULL) {
-        tokenid = strndup(otp_req->otp_token_id.data,
-                          otp_req->otp_token_id.length);
+    if (otp_req->otp_tokenID != NULL && otp_req->otp_tokenID->buf != NULL) {
+        tokenid = strndup(otp_req->otp_tokenID->buf,
+                          otp_req->otp_tokenID->size);
         if (tokenid == NULL) {
             retval = ENOMEM;
             goto cleanup;
@@ -1122,11 +1201,12 @@ otp_server_verify_padata(krb5_context context,
     free(tokenid);
     tokenid = NULL;
     krb5_free_data_contents(context, &decrypted_data);
-    if (otp_req != NULL) {
-        krb5_free_data_contents(context, &otp_req->otp_value);
-        krb5_free_data_contents(context, &otp_req->enc_data.ciphertext);
-        free(otp_req);
-    }
+    //FIXME, free otp_req
+    //if (otp_req != NULL) {
+    //    krb5_free_data_contents(context, &otp_req->otp_value);
+    //    krb5_free_data_contents(context, &otp_req->encData.cipher);
+    //    free(otp_req);
+    //}
     if (retval != 0) {
         otp_server_free_req_ctx(&req_ctx);
         req_ctx = NULL;
