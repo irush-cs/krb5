@@ -929,9 +929,6 @@ otp_server_get_edata(krb5_context context,
                      otp_req->method->name);
     }
 
-    /* TODO: Delegate to otp methods to decide on the flags.  */
-    otp_challenge.otp_tokeninfo[0].flags = 0;
-
     /* Encode challenge.  */
     retval = encode_krb5_pa_otp_challenge(&otp_challenge,
                                           &encoded_otp_challenge);
