@@ -1020,7 +1020,7 @@ otp_server_get_edata(krb5_context context,
  cleanup:
     krb5_free_data_contents(context, &encoded_otp_challenge);
     if (otp_req != NULL)
-        otp_server_free_req_ctx(otp_ctx, &otp_req);
+        otp_server_free_req_ctx(&otp_req);
     if (otp_challenge != NULL) {
         if (otp_challenge->nonce.buf != NULL)
             free(otp_challenge->nonce.buf);
