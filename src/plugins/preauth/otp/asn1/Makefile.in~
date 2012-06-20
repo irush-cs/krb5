@@ -1,0 +1,134 @@
+OTP_ASN_MODULE_SOURCES=	\
+	Int32.c	\
+	UInt32.c	\
+	Microseconds.c	\
+	KerberosTime.c	\
+	KerberosFlags.c	\
+	KerberosString.c	\
+	EncryptionKey.c	\
+	EncryptedData.c	\
+	LastReq.c	\
+	PA-ENC-TS-ENC.c	\
+	AlgorithmIdentifier.c	\
+	PA-OTP-CHALLENGE.c	\
+	OTP-TOKENINFO.c	\
+	OTPFormat.c	\
+	OTPFlags.c	\
+	PA-OTP-REQUEST.c	\
+	PA-OTP-ENC-REQUEST.c	\
+	PA-OTP-PIN-CHANGE.c	\
+	PinFlags.c	\
+	AnyURI.c
+
+OTP_ASN_MODULE_HEADERS=	\
+	Int32.h	\
+	UInt32.h	\
+	Microseconds.h	\
+	KerberosTime.h	\
+	KerberosFlags.h	\
+	KerberosString.h	\
+	EncryptionKey.h	\
+	EncryptedData.h	\
+	LastReq.h	\
+	PA-ENC-TS-ENC.h	\
+	AlgorithmIdentifier.h	\
+	PA-OTP-CHALLENGE.h	\
+	OTP-TOKENINFO.h	\
+	OTPFormat.h	\
+	OTPFlags.h	\
+	PA-OTP-REQUEST.h	\
+	PA-OTP-ENC-REQUEST.h	\
+	PA-OTP-PIN-CHANGE.h	\
+	PinFlags.h	\
+	AnyURI.h
+
+OTP_ASN_MODULE_HEADERS+=ANY.h
+OTP_ASN_MODULE_SOURCES+=ANY.c
+OTP_ASN_MODULE_HEADERS+=UTF8String.h
+OTP_ASN_MODULE_HEADERS+=INTEGER.h
+OTP_ASN_MODULE_HEADERS+=NativeEnumerated.h
+OTP_ASN_MODULE_HEADERS+=GeneralString.h
+OTP_ASN_MODULE_SOURCES+=GeneralString.c
+OTP_ASN_MODULE_HEADERS+=GeneralizedTime.h
+OTP_ASN_MODULE_SOURCES+=GeneralizedTime.c
+OTP_ASN_MODULE_SOURCES+=INTEGER.c
+OTP_ASN_MODULE_SOURCES+=NativeEnumerated.c
+OTP_ASN_MODULE_HEADERS+=NativeInteger.h
+OTP_ASN_MODULE_SOURCES+=NativeInteger.c
+OTP_ASN_MODULE_HEADERS+=OBJECT_IDENTIFIER.h
+OTP_ASN_MODULE_SOURCES+=OBJECT_IDENTIFIER.c
+OTP_ASN_MODULE_SOURCES+=UTF8String.c
+OTP_ASN_MODULE_HEADERS+=asn_SEQUENCE_OF.h
+OTP_ASN_MODULE_SOURCES+=asn_SEQUENCE_OF.c
+OTP_ASN_MODULE_HEADERS+=asn_SET_OF.h
+OTP_ASN_MODULE_SOURCES+=asn_SET_OF.c
+OTP_ASN_MODULE_HEADERS+=constr_SEQUENCE.h
+OTP_ASN_MODULE_SOURCES+=constr_SEQUENCE.c
+OTP_ASN_MODULE_HEADERS+=constr_SEQUENCE_OF.h
+OTP_ASN_MODULE_SOURCES+=constr_SEQUENCE_OF.c
+OTP_ASN_MODULE_HEADERS+=constr_SET_OF.h
+OTP_ASN_MODULE_SOURCES+=constr_SET_OF.c
+OTP_ASN_MODULE_HEADERS+=asn_application.h
+OTP_ASN_MODULE_HEADERS+=asn_system.h
+OTP_ASN_MODULE_HEADERS+=asn_codecs.h
+OTP_ASN_MODULE_HEADERS+=asn_internal.h
+OTP_ASN_MODULE_HEADERS+=OCTET_STRING.h
+OTP_ASN_MODULE_SOURCES+=OCTET_STRING.c
+OTP_ASN_MODULE_HEADERS+=BIT_STRING.h
+OTP_ASN_MODULE_SOURCES+=BIT_STRING.c
+OTP_ASN_MODULE_SOURCES+=asn_codecs_prim.c
+OTP_ASN_MODULE_HEADERS+=asn_codecs_prim.h
+OTP_ASN_MODULE_HEADERS+=ber_tlv_length.h
+OTP_ASN_MODULE_SOURCES+=ber_tlv_length.c
+OTP_ASN_MODULE_HEADERS+=ber_tlv_tag.h
+OTP_ASN_MODULE_SOURCES+=ber_tlv_tag.c
+OTP_ASN_MODULE_HEADERS+=ber_decoder.h
+OTP_ASN_MODULE_SOURCES+=ber_decoder.c
+OTP_ASN_MODULE_HEADERS+=der_encoder.h
+OTP_ASN_MODULE_SOURCES+=der_encoder.c
+OTP_ASN_MODULE_HEADERS+=constr_TYPE.h
+OTP_ASN_MODULE_SOURCES+=constr_TYPE.c
+OTP_ASN_MODULE_HEADERS+=constraints.h
+OTP_ASN_MODULE_SOURCES+=constraints.c
+OTP_ASN_MODULE_HEADERS+=xer_support.h
+OTP_ASN_MODULE_SOURCES+=xer_support.c
+OTP_ASN_MODULE_HEADERS+=xer_decoder.h
+OTP_ASN_MODULE_SOURCES+=xer_decoder.c
+OTP_ASN_MODULE_HEADERS+=xer_encoder.h
+OTP_ASN_MODULE_SOURCES+=xer_encoder.c
+OTP_ASN_MODULE_HEADERS+=per_support.h
+OTP_ASN_MODULE_SOURCES+=per_support.c
+OTP_ASN_MODULE_HEADERS+=per_decoder.h
+OTP_ASN_MODULE_SOURCES+=per_decoder.c
+OTP_ASN_MODULE_HEADERS+=per_encoder.h
+OTP_ASN_MODULE_SOURCES+=per_encoder.c
+
+#lib_LTLIBRARIES=libsomething.la
+#libsomething_la_SOURCES=$(ASN_MODULE_SOURCES) $(ASN_MODULE_HEADERS)
+#
+## This file may be used as an input for make(3)
+## Remove the lines below to convert it into a pure .am file
+#TARGET = progname
+#CFLAGS += -I.
+#OBJS=${ASN_MODULE_SOURCES:.c=.o} ${ASN_CONVERTER_SOURCES:.c=.o}
+#
+#all: $(TARGET)
+#
+#$(TARGET): ${OBJS}
+#	$(CC) $(CFLAGS) -o $(TARGET) ${OBJS} $(LDFLAGS) $(LIBS)
+#
+#.SUFFIXES:
+#.SUFFIXES: .c .o
+#
+#.c.o:
+#	$(CC) $(CFLAGS) -o $@ -c $<
+#
+#clean:
+#	rm -f $(TARGET)
+#	rm -f $(OBJS)
+#
+#regen: regenerate-from-asn1-source
+#
+#regenerate-from-asn1-source:
+#	asn1c modules/KerberosV5Spec2.asn1 modules/PKIX1Explicit88.asn1 modules/otp-preauth-21.asn1
+#

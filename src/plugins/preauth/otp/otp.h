@@ -30,10 +30,17 @@
 #include <krb5/krb5.h>
 #include "adm_proto.h"          /* for krb5_klog_syslog */
 #include "net-server.h"
+#include "asn1/OTP-TOKENINFO.h"
+
+/* FIXME: Belong in krb5.hin.  */
+#define KRB5_KEYUSAGE_PA_OTP_REQUEST 		45
+#define KRB5_PADATA_OTP_CHALLENGE  141
+#define KRB5_PADATA_OTP_REQUEST    142
 
 void SERVER_DEBUG(errcode_t, const char *, ...);
 void CLIENT_DEBUG(const char *, ...);
 
+extern int otp_encoder(const void*, size_t, void*);
 
 #define OTP_METHOD_CONTEXT(c) (c)->method->context
 
@@ -71,7 +78,7 @@ typedef int (*otp_server_verify_func_t)(const struct otp_req_ctx *req_ctx,
 
 /* Function to set up the challange to be sent to the client. */
 typedef int (*otp_server_challenge_func_t)(const struct otp_req_ctx *ctx,
-                                           krb5_otp_tokeninfo *tokeninfo);
+                                           OTP_TOKENINFO_t *tokeninfo);
 
 struct otp_tlv {
     unsigned int type;

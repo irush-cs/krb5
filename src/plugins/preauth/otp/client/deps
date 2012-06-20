@@ -1,0 +1,1 @@
+otp_client.o: $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/krb5/krb5.h $(top_srcdir)/include/krb5/preauth_plugin.h otp_client.c ../otp.h

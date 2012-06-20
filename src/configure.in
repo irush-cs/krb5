@@ -1173,7 +1173,7 @@ AC_ARG_ENABLE(otp_preauth,
 	      esac],
 	      [enable_otp_preauth=no])
 if test "$enable_otp_preauth" = "yes"; then
-   otp_preauth_plugin=plugins/preauth/otp
+   otp_preauth_plugin="plugins/preauth/otp plugins/preauth/otp/client plugins/preauth/otp/server"
    AC_CHECK_LIB([curl], [curl_global_init],
                 AC_DEFINE([OTP_PREAUTH_ENABLE_BASICAUTH], 1)
 		[otp_libs="$otp_libs -lcurl"]
@@ -1324,6 +1324,9 @@ dnl	ccapi ccapi/lib ccapi/lib/unix ccapi/server ccapi/server/unix ccapi/test
 	plugins/preauth/securid_sam2
 	plugins/preauth/wpse
 	plugins/preauth/otp
+	plugins/preauth/otp/client
+	plugins/preauth/otp/server
+	plugins/preauth/otp/asn1
 	plugins/authdata/greet
 	plugins/authdata/greet_client
 	plugins/authdata/greet_server
