@@ -589,6 +589,8 @@ otp_server_get_edata(krb5_context context,
                 free(otp_challenge->otp_tokenInfo.list.array[i]->flags.buf);
             asn_sequence_del(&otp_challenge->otp_tokenInfo, 0, 1);
         }
+        // TODO: with a free function can free the tokenInfo
+        asn_sequence_empty(&otp_challenge->otp_tokenInfo);
         free(otp_challenge);
     }
     if (otp_tokeninfo != NULL) {
