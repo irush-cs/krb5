@@ -31,9 +31,15 @@
 #include "adm_proto.h"          /* for krb5_klog_syslog */
 #include "asn1/OTP-TOKENINFO.h"
 
+/* FIXME: Belong in krb5.hin.  */
+#define KRB5_KEYUSAGE_PA_OTP_REQUEST 		45
+#define KRB5_PADATA_OTP_CHALLENGE  141
+#define KRB5_PADATA_OTP_REQUEST    142
+
 void SERVER_DEBUG(errcode_t, const char *, ...);
 void CLIENT_DEBUG(const char *, ...);
 
+extern int otp_encoder(const void*, size_t, void*);
 
 #define OTP_METHOD_CONTEXT(c) (c)->method->context
 

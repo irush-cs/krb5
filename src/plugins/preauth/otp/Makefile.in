@@ -24,7 +24,7 @@ SHLIB_EXPLIBS= -lkrb5 -lcom_err -lk5crypto @otp_libs@ $(SUPPORT_LIB) $(LIBS)
 SHLIB_DIRS=-L$(TOPLIBD)
 SHLIB_RDIRS=$(KRB5_LIBDIR)
 STOBJLISTS=OBJS.ST asn1/OBJS.ST
-STLIBOBJS= otp_main.o otp_profile.o @otp_objs@
+STLIBOBJS= otp_server.o otp_client.o otp_profile.o @otp_objs@
 
 all-unix:: all-liblinks
 install-unix:: install-libs
