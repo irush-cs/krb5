@@ -41,7 +41,7 @@
 #include <security/pam_appl.h>
 #include <k5-int.h>
 
-#include "otp.h"
+#include "../otp.h"
 #include "m_pam.h"
 
 int otp_pam_get_user_service(const struct otp_req_ctx *ctx,

@@ -33,7 +33,7 @@
 #include <assert.h>
 #include <curl/curl.h>
 
-#include "otp.h"
+#include "../otp.h"
 #include "m_basicauth.h"
 
 #define URL_TEMPLATE "otp_basicauth_url_template"

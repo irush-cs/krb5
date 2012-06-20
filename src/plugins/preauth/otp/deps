@@ -1,2 +1,1 @@
-otp_server.o: $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/krb5/krb5.h $(top_srcdir)/include/krb5/preauth_plugin.h otp_server.c otp.h m_basicauth.c m_basicauth.h m_ykclient.c m_ykclient.h m_pam.c m_pam.h
-otp_client.o: $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/krb5/krb5.h $(top_srcdir)/include/krb5/preauth_plugin.h otp_client.c otp.h
+# No dependencies here.

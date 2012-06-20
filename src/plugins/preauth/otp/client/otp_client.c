@@ -29,11 +29,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "otp.h"
+#include "../otp.h"
 #include <krb5/preauth_plugin.h>
-#include "asn1/PA-OTP-CHALLENGE.h"
-#include "asn1/PA-OTP-REQUEST.h"
-#include "asn1/PA-OTP-ENC-REQUEST.h"
+#include "../asn1/PA-OTP-CHALLENGE.h"
+#include "../asn1/PA-OTP-REQUEST.h"
+#include "../asn1/PA-OTP-ENC-REQUEST.h"
 
 void
 CLIENT_DEBUG(const char *format, ...)

@@ -113,9 +113,9 @@
 
 #include "../lib/krb5/asn.1/asn1_encode.h"
 #include <krb5/preauth_plugin.h>
-#include "asn1/PA-OTP-CHALLENGE.h"
-#include "asn1/PA-OTP-REQUEST.h"
-#include "asn1/PA-OTP-ENC-REQUEST.h"
+#include "../asn1/PA-OTP-CHALLENGE.h"
+#include "../asn1/PA-OTP-REQUEST.h"
+#include "../asn1/PA-OTP-ENC-REQUEST.h"
 
 /* FIXME: Belong in krb5.hin.  */
 #define KRB5_PADATA_OTP_CONFIRM    143
@@ -133,7 +133,7 @@
    M=manufacturer, T=token type, U=manufacturer unique id.  */
 #define TOKEN_ID_LENGTH 12
 
-#include "otp.h"
+#include "../otp.h"
 #if defined (OTP_PREAUTH_ENABLE_BASICAUTH)
 #include "m_basicauth.h"
 #endif
@@ -171,17 +171,6 @@ SERVER_DEBUG(errcode_t code, const char *format, ...)
     com_err_va("OTP PA", code, format, ap);
     va_end(ap);
 #endif
-}
-
-// FIXME move from otp_server.c
-int
-otp_encoder(const void* buf, size_t len, void* output) {
-    krb5_data* data = (krb5_data*)output;
-    data->data = realloc(data->data, data->length + len);
-    memcpy(data->data + data->length, buf, len);
-    data->length += len;
-    
-    return 0;
 }
 
 static int
